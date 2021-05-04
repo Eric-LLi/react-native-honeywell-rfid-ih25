@@ -45,7 +45,7 @@ export declare function off(event: READER_EVENTS): void;
 
 export declare function removeAll(event: READER_EVENTS): void;
 
-export declare function connect(): Promise<boolean>;
+export declare function connect(name: string): Promise<boolean>;
 
 export declare function reconnect(): void;
 
@@ -54,6 +54,8 @@ export declare function disconnect(): Promise<void>;
 export declare function isConnected(): Promise<boolean>;
 
 export declare function clear(): void;
+
+export declare function getDevices(): Promise<Array<DevicesTypes>>;
 
 export declare function getDeviceDetails(): Promise<DevicesTypes | null>;
 
