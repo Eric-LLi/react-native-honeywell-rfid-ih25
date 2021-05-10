@@ -413,10 +413,6 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
                         sendEvent(TAG, epc);
                         return;
                     }
-
-//                    if (rssi < -50) {
-//                        sendEvent(TAG, epc);
-//                    }
                 } else {
                     if (addTagToList(epc)) {
                         sendEvent(TAG, epc);
