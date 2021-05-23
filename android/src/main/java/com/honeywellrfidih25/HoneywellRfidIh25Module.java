@@ -1,4 +1,3 @@
-// HoneywellRfidIh25Module.java
 
 package com.honeywellrfidih25;
 
@@ -11,6 +10,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -114,7 +114,7 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
             final BluetoothLeScanner scanner = mBluetoothAdapter.getBluetoothLeScanner();
             scanner.startScan(scanCallback);
 
-            new Handler().postDelayed(new Runnable() {
+            new Handler(Looper.myLooper()).postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     scanner.stopScan(scanCallback);
@@ -173,7 +173,7 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
             final BluetoothLeScanner scanner = mBluetoothAdapter.getBluetoothLeScanner();
             scanner.startScan(scanCallback);
 
-            new Handler().postDelayed(new Runnable() {
+            new Handler(Looper.myLooper()).postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     scanner.stopScan(scanCallback);
@@ -208,9 +208,10 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
                 map.putInt("antennaLevel", antennas[0].getReadPower() / 100);
 
                 promise.resolve(map);
+            } else {
+                throw new Exception("Reader is not connected");
             }
 
-            promise.reject(LOG, "Reader is not connected");
         } catch (Exception err) {
             promise.reject(err);
         }
@@ -222,11 +223,13 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
             if (mRfidReader != null) {
                 AntennaPower[] antennas = mRfidReader.getAntennaPower();
                 antennas[0].setReadPower(antennaLevel * 100);
+                antennas[0].setWritePower(antennaLevel * 100);
 
                 mRfidReader.setAntennaPower(antennas);
                 promise.resolve(true);
+            } else {
+                throw new Exception("Reader is not connected");
             }
-            promise.reject(LOG, "Reader is not connected");
         } catch (Exception err) {
             promise.reject(err);
         }
@@ -243,8 +246,9 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
                 WritableMap map = Arguments.createMap();
                 map.putBoolean("status", true);
                 sendEvent(WRITE_TAG_STATUS, map);
+            } else {
+                throw new Exception("Reader is not connected");
             }
-            promise.reject(LOG, "Reader is not connected");
         } catch (Exception err) {
             promise.reject(err);
         }
@@ -257,9 +261,24 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
                 mRfidMgr.setTriggerMode(enable ? TriggerMode.RFID : TriggerMode.BARCODE_SCAN);
 
                 promise.resolve(true);
+            } else {
+                throw new Exception("Reader is not connected");
+            }
+        } catch (Exception err) {
+            promise.reject(err);
+        }
+    }
+
+    @ReactMethod
+    public void softReadCancel(boolean enable, Promise promise) {
+        try {
+            if (enable) {
+                read();
+            } else {
+                cancel();
             }
 
-            promise.reject("Reader is not connected");
+            promise.resolve(true);
         } catch (Exception err) {
             promise.reject(err);
         }
@@ -280,7 +299,7 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
             init();
         }
 
-        new Handler().postDelayed(new Runnable() {
+        new Handler(Looper.myLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
                 mRfidMgr.addEventListener(mEventListener);
@@ -410,6 +429,8 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
 
                 if (isSingleRead) {
                     if (addTagToList(epc) && cacheTags.size() == 1) {
+                        cancel();
+
                         sendEvent(TAG, epc);
                         return;
                     }
