@@ -55,8 +55,10 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
     private static BluetoothDevice mDevice;
     private static ArrayList<String> cacheTags = new ArrayList<>();
     private static boolean isSingleRead = false;
+    private static boolean isReading = false;
     private static final ArrayList<BluetoothDevice> mDevices = new ArrayList<>();
-
+    private static BluetoothLeScanner scanner;
+    private static Handler handler;
     BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
     public HoneywellRfidIh25Module(ReactApplicationContext reactContext) {
@@ -111,28 +113,22 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
         try {
             mDevices.clear();
 
-            final BluetoothLeScanner scanner = mBluetoothAdapter.getBluetoothLeScanner();
+            scanner = mBluetoothAdapter.getBluetoothLeScanner();
             scanner.startScan(scanCallback);
 
-            new Handler(Looper.myLooper()).postDelayed(new Runnable() {
+            handler = new Handler(Looper.myLooper());
+            handler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     scanner.stopScan(scanCallback);
 
-                    for (BluetoothDevice d : mDevices) {
-                        if (d.getName().equals(name)) {
-                            mDevice = d;
-                        }
-                    }
+                    WritableMap map = Arguments.createMap();
+                    map.putBoolean("status", false);
+                    map.putString("error", "Failed to connect reader...Please make sure your reader is power on.");
 
-                    if (mDevice != null) {
-                        doConnect();
-                    } else {
-                        promise.reject(LOG, "No reader found");
-                    }
-
+                    sendEvent(READER_STATUS, map);
                 }
-            }, 5 * 1000);
+            }, 8 * 1000);
 
             promise.resolve(true);
         } catch (Exception err) {
@@ -170,26 +166,19 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
         try {
             mDevices.clear();
 
-            final BluetoothLeScanner scanner = mBluetoothAdapter.getBluetoothLeScanner();
+            scanner = mBluetoothAdapter.getBluetoothLeScanner();
             scanner.startScan(scanCallback);
 
-            new Handler(Looper.myLooper()).postDelayed(new Runnable() {
+            handler = new Handler(Looper.myLooper());
+            handler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     scanner.stopScan(scanCallback);
 
                     WritableArray deviceList = Arguments.createArray();
-                    for (BluetoothDevice device : mDevices) {
-                        WritableMap map = Arguments.createMap();
-                        map.putString("name", device.getName());
-                        map.putString("mac", device.getAddress());
-                        deviceList.pushMap(map);
-                    }
-
                     promise.resolve(deviceList);
                 }
-            }, 3 * 1000);
-
+            }, 8 * 1000);
         } catch (Exception err) {
             promise.reject(err);
         }
@@ -239,6 +228,8 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
     public void programTag(String oldTag, String newTag, Promise promise) {
         try {
             if (mRfidReader != null) {
+                if (isReading) cancel();
+
                 mRfidReader.writeTagData(oldTag, 1, 2, "00000000", newTag);
 
                 promise.resolve(true);
@@ -258,6 +249,7 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
     public void setEnabled(boolean enable, Promise promise) {
         try {
             if (mRfidMgr != null) {
+                if (isReading) cancel();
                 mRfidMgr.setTriggerMode(enable ? TriggerMode.RFID : TriggerMode.BARCODE_SCAN);
 
                 promise.resolve(true);
@@ -299,13 +291,16 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
             init();
         }
 
-        new Handler(Looper.myLooper()).postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                mRfidMgr.addEventListener(mEventListener);
-                mRfidMgr.connect(mDevice.getAddress());
-            }
-        }, 1000);
+        if (mDevice != null) {
+            handler = new Handler(Looper.myLooper());
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    mRfidMgr.addEventListener(mEventListener);
+                    mRfidMgr.connect(mDevice.getAddress());
+                }
+            }, 2000);
+        }
     }
 
     private void doDisconnect() {
@@ -317,21 +312,29 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
         }
 
         if (mRfidReader != null) {
-            mRfidReader.removeOnTagReadListener(dataListener);
+//            mRfidReader.removeOnTagReadListener(dataListener);
 
             mRfidReader = null;
         }
     }
 
     private void read() {
-        if (mRfidReader != null && mRfidReader.available()) {
+        if (mRfidReader != null && mRfidReader.available() && !isReading) {
+            isReading = true;
+
+            mRfidReader.setOnTagReadListener(dataListener);
+
             mRfidReader.read(TagAdditionData.get("None"), new TagReadOption());
         }
     }
 
     private void cancel() {
-        if (mRfidReader != null && mRfidReader.available()) {
+        if (mRfidReader != null && mRfidReader.available() && isReading) {
+            isReading = false;
+
             mRfidReader.stopRead();
+
+            mRfidReader.removeOnTagReadListener(dataListener);
         }
     }
 
@@ -362,12 +365,10 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
         public void onReaderCreated(boolean b, RfidReader rfidReader) {
             mRfidReader = rfidReader;
 
-            mRfidReader.setOnTagReadListener(dataListener);
-            mRfidMgr.setBeeper(true, 0, 10);
-            mRfidMgr.setBeeper(false, 0, 10);
+//            mRfidReader.setOnTagReadListener(dataListener);
             mRfidMgr.setAutoReconnect(false);
             try {
-                mRfidReader.setSession(Gen2.Session.Session0);
+                mRfidReader.setSession(Gen2.Session.Session1);
             } catch (RfidReaderException e) {
                 e.printStackTrace();
             }
@@ -391,7 +392,7 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
 
         @Override
         public void onTriggerModeSwitched(TriggerMode triggerMode) {
-            //
+            if (isReading) cancel();
         }
     };
 
@@ -410,8 +411,16 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
                     }
                 }
 
-                if (newDevice) {
+                if (newDevice && device.getName().equals("IH25")) {
                     mDevices.add(device);
+
+                    mDevice = device;
+
+                    scanner.stopScan(scanCallback);
+
+                    handler.removeCallbacksAndMessages(null);
+
+                    doConnect();
                 }
             }
         }
@@ -420,26 +429,26 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
     private final OnTagReadListener dataListener = new OnTagReadListener() {
         @Override
         public void onTagRead(final TagReadData[] t) {
-            mRfidMgr.setBeeper(true, 0, 10);
-            mRfidMgr.setBeeper(false, 0, 10);
 
-            for (TagReadData trd : t) {
-                String epc = trd.getEpcHexStr();
-                int rssi = trd.getRssi();
+            if (isSingleRead) {
+                String epc = t[0].getEpcHexStr();
+                if (addTagToList(epc) && cacheTags.size() == 1) {
+                    sendEvent(TAG, epc);
 
-                if (isSingleRead) {
-                    if (addTagToList(epc) && cacheTags.size() == 1) {
-                        cancel();
+//                    cancel();
+                }
+            } else {
+                for (TagReadData trd : t) {
+                    String epc = trd.getEpcHexStr();
+                    int rssi = trd.getRssi();
 
-                        sendEvent(TAG, epc);
-                        return;
-                    }
-                } else {
+                    Log.d(LOG, epc + rssi);
                     if (addTagToList(epc)) {
                         sendEvent(TAG, epc);
                     }
                 }
             }
+
         }
     };
 

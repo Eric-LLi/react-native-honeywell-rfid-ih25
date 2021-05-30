@@ -14,7 +14,7 @@ export type BatteryTypes = {
 export type DevicesTypes = {
 	name: string;
 	mac: string;
-	antennaLevel?: string;
+	antennaLevel?: number;
 	power?: number;
 };
 
@@ -55,7 +55,7 @@ export declare function isConnected(): Promise<boolean>;
 
 export declare function clear(): void;
 
-export declare function getDevices(): Promise<Array<DevicesTypes>>;
+// export declare function getDevices(): Promise<Array<DevicesTypes>>;
 
 export declare function getDeviceDetails(): Promise<DevicesTypes | null>;
 
