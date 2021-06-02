@@ -113,6 +113,10 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
         try {
             mDevices.clear();
 
+            if (mRfidMgr != null && mRfidMgr.isConnected()) {
+                doDisconnect();
+            }
+
             scanner = mBluetoothAdapter.getBluetoothLeScanner();
             scanner.startScan(scanCallback);
 
