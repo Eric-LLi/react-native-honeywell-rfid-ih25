@@ -358,6 +358,7 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
         public void onDeviceDisconnected(Object o) {
             WritableMap map = Arguments.createMap();
             map.putBoolean("status", false);
+            map.putString("error", null);
             sendEvent(READER_STATUS, map);
         }
 
