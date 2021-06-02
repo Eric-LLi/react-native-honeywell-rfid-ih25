@@ -65,6 +65,8 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
         super(reactContext);
         this.reactContext = reactContext;
         this.reactContext.addLifecycleEventListener(this);
+
+        mRfidMgr = RfidManager.getInstance(this.reactContext);
     }
 
     @Override
@@ -74,12 +76,14 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
 
     @Override
     public void onHostResume() {
-        //
+        if (mRfidMgr != null)
+            mRfidMgr.addEventListener(mEventListener);
     }
 
     @Override
     public void onHostPause() {
-        //
+        if (mRfidMgr != null)
+            mRfidMgr.removeEventListener(mEventListener);
     }
 
     @Override
@@ -191,7 +195,7 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
     @ReactMethod
     public void getDeviceDetails(Promise promise) {
         try {
-            if (mRfidReader != null) {
+            if (mRfidReader != null && mRfidMgr.isConnected()) {
                 AntennaPower[] antennas = mRfidReader.getAntennaPower();
 
                 WritableMap map = Arguments.createMap();
@@ -213,7 +217,7 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
     @ReactMethod
     public void setAntennaLevel(int antennaLevel, Promise promise) {
         try {
-            if (mRfidReader != null) {
+            if (mRfidReader != null && mRfidMgr.isConnected()) {
                 AntennaPower[] antennas = mRfidReader.getAntennaPower();
                 antennas[0].setReadPower(antennaLevel * 100);
                 antennas[0].setWritePower(antennaLevel * 100);
@@ -231,7 +235,7 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
     @ReactMethod
     public void programTag(String oldTag, String newTag, Promise promise) {
         try {
-            if (mRfidReader != null) {
+            if (mRfidReader != null && mRfidMgr.isConnected()) {
                 if (isReading) cancel();
 
                 mRfidReader.writeTagData(oldTag, 1, 2, "00000000", newTag);
@@ -252,7 +256,7 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
     @ReactMethod
     public void setEnabled(boolean enable, Promise promise) {
         try {
-            if (mRfidMgr != null) {
+            if (mRfidMgr != null && mRfidMgr.isConnected()) {
                 if (isReading) cancel();
                 mRfidMgr.setTriggerMode(enable ? TriggerMode.RFID : TriggerMode.BARCODE_SCAN);
 
@@ -283,6 +287,8 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
     private void init() {
         if (mRfidMgr == null) {
             mRfidMgr = RfidManager.getInstance(this.reactContext);
+            mRfidMgr.addEventListener(mEventListener);
+            mRfidMgr.setAutoReconnect(false);
         }
     }
 
@@ -296,14 +302,12 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
         }
 
         if (mDevice != null) {
-            handler = new Handler(Looper.myLooper());
             handler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    mRfidMgr.addEventListener(mEventListener);
                     mRfidMgr.connect(mDevice.getAddress());
                 }
-            }, 2000);
+            }, 3 * 1000);
         }
     }
 
@@ -368,30 +372,30 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
 
         @Override
         public void onReaderCreated(boolean b, RfidReader rfidReader) {
-            mRfidReader = rfidReader;
-
-//            mRfidReader.setOnTagReadListener(dataListener);
-            mRfidMgr.setAutoReconnect(false);
-            try {
-                mRfidReader.setSession(Gen2.Session.Session1);
-            } catch (RfidReaderException e) {
-                e.printStackTrace();
+            if (rfidReader != null) {
+                mRfidReader = rfidReader;
+                try {
+                    mRfidReader.setSession(Gen2.Session.Session1);
+                } catch (RfidReaderException e) {
+                    e.printStackTrace();
+                }
+                WritableMap map = Arguments.createMap();
+                map.putBoolean("status", mRfidMgr.isConnected());
+                map.putString("error", null);
+                sendEvent(READER_STATUS, map);
             }
-            WritableMap map = Arguments.createMap();
-            map.putBoolean("status", true);
-            sendEvent(READER_STATUS, map);
         }
 
         @Override
-        public void onRfidTriggered(boolean b) {
-            if (b) {
+        public void onRfidTriggered(boolean state) {
+            if (state) {
                 read();
             } else {
                 cancel();
             }
 
             WritableMap map = Arguments.createMap();
-            map.putBoolean("status", b);
+            map.putBoolean("status", state);
             sendEvent(TRIGGER_STATUS, map);
         }
 
