@@ -1,5 +1,6 @@
 export enum READER_EVENTS {
 	TAG = 'TAG',
+	TAGS = 'TAGS',
 	BARCODE = 'BARCODE',
 	WRITE_TAG = 'WRITE_TAG',
 	TRIGGER_STATUS = 'TRIGGER_STATUS',
@@ -34,10 +35,11 @@ export type TriggerStatus = {
 
 type onReaderStatus = (data: ReaderStatus) => void;
 type onTagResult = (tag: string) => void;
+type onTagsResult = (tags: string[]) => void;
 type onProgramResult = (data: ProgramStatus) => void;
 type onTriggerStatus = (data: TriggerStatus) => void;
 
-export type Callbacks = onReaderStatus | onTagResult | onProgramResult | onTriggerStatus;
+export type Callbacks = onReaderStatus | onTagResult | onProgramResult | onTriggerStatus | onTagsResult;
 
 export declare function on(event: READER_EVENTS, callback: Callbacks): void;
 

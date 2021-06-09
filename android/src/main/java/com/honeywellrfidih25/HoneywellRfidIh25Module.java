@@ -50,6 +50,7 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
     private final String WRITE_TAG_STATUS = "WRITE_TAG_STATUS";
     private final String BATTERY_STATUS = "BATTERY_STATUS";
     private final String TAG = "TAG";
+    private final String TAGS = "TAGS";
     private static RfidManager mRfidMgr;
     private static RfidReader mRfidReader;
     private static BluetoothDevice mDevice;
@@ -101,6 +102,13 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
         this.reactContext
                 .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                 .emit(eventName, msg);
+    }
+
+
+    private void sendEvent(String eventName, WritableArray array) {
+        this.reactContext
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                .emit(eventName, array);
     }
 
     @ReactMethod
@@ -447,15 +455,19 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
 //                    cancel();
                 }
             } else {
+                WritableArray array = Arguments.createArray();
                 for (TagReadData trd : t) {
                     String epc = trd.getEpcHexStr();
                     int rssi = trd.getRssi();
 
                     Log.d(LOG, epc + rssi);
                     if (addTagToList(epc)) {
-                        sendEvent(TAG, epc);
+//                        sendEvent(TAG, epc);
+                        array.pushString(epc);
                     }
                 }
+
+                if (array.size() > 0) sendEvent(TAGS, array);
             }
 
         }
