@@ -54,7 +54,7 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
     private static RfidManager mRfidMgr;
     private static RfidReader mRfidReader;
     private static BluetoothDevice mDevice;
-    private static ArrayList<String> cacheTags = new ArrayList<>();
+    private static final ArrayList<String> cacheTags = new ArrayList<>();
     private static boolean isSingleRead = false;
     private static boolean isReading = false;
     private static final ArrayList<BluetoothDevice> mDevices = new ArrayList<>();
@@ -169,7 +169,7 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
 
     @ReactMethod
     public void clear() {
-        cacheTags = new ArrayList<>();
+        cacheTags.clear();
     }
 
     @ReactMethod
@@ -455,7 +455,7 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
 //                    cancel();
                 }
             } else {
-                WritableArray array = Arguments.createArray();
+                ArrayList<String> temp_tags = new ArrayList<>();
                 for (TagReadData trd : t) {
                     String epc = trd.getEpcHexStr();
                     int rssi = trd.getRssi();
@@ -463,11 +463,11 @@ public class HoneywellRfidIh25Module extends ReactContextBaseJavaModule implemen
                     Log.d(LOG, epc + rssi);
                     if (addTagToList(epc)) {
 //                        sendEvent(TAG, epc);
-                        array.pushString(epc);
+                        temp_tags.add(epc);
                     }
                 }
 
-                if (array.size() > 0) sendEvent(TAGS, array);
+                if (temp_tags.size() > 0) sendEvent(TAGS, Arguments.fromList(temp_tags));
             }
 
         }
